@@ -260,19 +260,19 @@ func main() {
 			break
 		case "Unavailable":
 			//NextLineSignal = true
-			fmt.Fprintln(f, "IPv4【disney】IP所在的国家不提供服务")
+			fmt.Fprintln(f, "【disney】IPv4 IP所在的国家不提供服务")
 			break
 		case "-1":
 			//NextLineSignal = true
-			fmt.Fprintln(f, "IPv4【disney】IP所在的国家即将开通DisneyPlus")
+			fmt.Fprintln(f, "【disney】IPv4 IP所在的国家即将开通DisneyPlus")
 			break
 		default:
 			//NextLineSignal = true
 			//fmt.Fprintln(f, "[IPv4]")
 			if VerifyStatus == -1 {
-				fmt.Fprintln(f, "IPv4【disney】无法正常使用")
+				fmt.Fprintln(f, "【disney】IPv4无法正常使用")
 			} else {
-				fmt.Fprintln(f, "IPv4【disney】完整解锁 区域：" + QueryStatusv4 + "区")
+				fmt.Fprintln(f, "【disney】IPv4完整解锁 区域：" + QueryStatusv4 + "区")
 			}
 		}
 
@@ -283,13 +283,13 @@ func main() {
 			// if NextLineSignal == true {
 			// 	fmt.Fprintln(f, "\n")
 			// }
-			fmt.Fprintln(f, "IPv6【disney】IP所在的国家不提供服务")
+			fmt.Fprintln(f, "【disney】IPv6 IP所在的国家不提供服务")
 			break
 		case "-1":
 			// if NextLineSignal == true {
 			// 	fmt.Fprintln(f, "\n")
 			// }
-			fmt.Fprintln(f, "IPv6【disney】IP所在的国家即将开通DisneyPlus")
+			fmt.Fprintln(f, "【disney】IPv6IP所在的国家即将开通DisneyPlus")
 			break
 		default:
 			// if NextLineSignal == true {
@@ -297,9 +297,9 @@ func main() {
 			// }
 			//fmt.Fprintln(f, "[IPv6]")
 			if VerifyStatus == -1 {
-				fmt.Fprintln(f, "IPv6【disney】无法正常使用")
+				fmt.Fprintln(f, "【disney】IPv6 无法正常使用")
 			} else {
-				fmt.Fprintln(f, "IPv6【disney】完整解锁 区域：" + QueryStatusv6 + "区")
+				fmt.Fprintln(f, "【disney】IPv6完整解锁 区域：" + QueryStatusv6 + "区")
 			}
 		}
 		
