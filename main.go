@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"context"
 	"fmt"
 	"io"
@@ -80,9 +81,13 @@ func downloadConfig() {
 	if err != nil {
 		panic(err)
 	}
+	tr := &h.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
 	//下载配置信息
 	client := &h.Client{
-		Timeout: 2 * time.Second,
+		Timeout: 5 * time.Second,
+		Transport: tr,
 	}
 	req, _ := h.NewRequest("GET", urlConfig, nil)
 	// 设置 Clash User-Agent，方便面板尽可能识别为Clash并返回符合Clash的结果
@@ -163,11 +168,11 @@ func main() {
 		}
 	}()
 
-	//创建netflix.txt
-	f, err := os.OpenFile(exPath+"/netflix.txt", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	//创建result.txt
+	f, err := os.OpenFile(exPath+"/result.txt", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
 	defer f.Close()
 	if err != nil {
-		fmt.Println("新建netflix.txt失败：", err)
+		fmt.Println("新建result.txt失败：", err)
 	}
 
 	//创建excel
@@ -200,23 +205,106 @@ func main() {
 		r := verify.NewVerify(verify.Config{
 			Proxy: "http://" + proxyUrl,
 		})
+		
 		switch r.Res[1].StatusCode {
 		case 2:
 			unblock = true
-			res = "完整解锁，可观看全部影片，地域信息：" + r.Res[1].CountryName
+			res = "【Netflix】IPv4完整解锁，可观看全部影片，地域信息：" + r.Res[1].CountryName
 		case 1:
 			unblock = false
-			res = "部分解锁，可观看自制剧，地域信息：" + r.Res[1].CountryName
+			res = "【Netflix】IPv4部分解锁，可观看自制剧，地域信息：" + r.Res[1].CountryName
 		case 0:
 			unblock = false
-			res = "完全不支持Netflix"
+			res = "【Netflix】IPv4无法正常使用"
+		case -1:
+			unblock = false
+			res = "【Netflix】IPv4 IP所在的国家不提供服务"
 		default:
 			unblock = false
-			res = "网络异常"
+			res = "【Netflix】IPv4解锁检测失败"
 		}
 
 		fmt.Fprintln(f, enc.ConvertString(str+res))
 
+		switch r.Res[2].StatusCode {
+		case 2:
+			unblock = true
+			res = "【Netflix】IPv6完整解锁，可观看全部影片，地域信息：" + r.Res[1].CountryName
+		case 1:
+			unblock = false
+			res = "【Netflix】IPv6部分解锁，可观看自制剧，地域信息：" + r.Res[1].CountryName
+		case 0:
+			unblock = false
+			res = "【Netflix】IPv6无法正常使用"
+		case -1:
+			unblock = false
+			res = "【Netflix】IPv6 IP所在的国家不提供服务"
+		default:
+			unblock = false
+			res = "【Netflix】IPv6解锁检测失败"
+		}
+
+		fmt.Fprintln(f, enc.ConvertString(res))
+
+		//disney
+		QueryStatusv4 := QueryAreaAvailable("ipv4","http://" + proxyUrl)
+		QueryStatusv6 := QueryAreaAvailable("ipv6","http://" + proxyUrl)
+
+		VerifyStatus := VerifyAuthorized("http://" + proxyUrl)
+		if VerifyStatus == -2 {
+			fmt.Fprintln(f, "[提醒] 无法获取DisneyPlus权验接口信息，当前测试可能会不准确")
+		}
+
+		switch QueryStatusv4 {
+		case "400":
+			break
+		case "Unavailable":
+			//NextLineSignal = true
+			fmt.Fprintln(f, "IPv4【disney】IP所在的国家不提供服务")
+			break
+		case "-1":
+			//NextLineSignal = true
+			fmt.Fprintln(f, "IPv4【disney】IP所在的国家即将开通DisneyPlus")
+			break
+		default:
+			//NextLineSignal = true
+			//fmt.Fprintln(f, "[IPv4]")
+			if VerifyStatus == -1 {
+				fmt.Fprintln(f, "IPv4【disney】无法正常使用")
+			} else {
+				fmt.Fprintln(f, "IPv4【disney】完整解锁 区域：" + QueryStatusv4 + "区")
+			}
+		}
+
+		switch QueryStatusv6 {
+		case "400":
+			break
+		case "Unavailable":
+			// if NextLineSignal == true {
+			// 	fmt.Fprintln(f, "\n")
+			// }
+			fmt.Fprintln(f, "IPv6【disney】IP所在的国家不提供服务")
+			break
+		case "-1":
+			// if NextLineSignal == true {
+			// 	fmt.Fprintln(f, "\n")
+			// }
+			fmt.Fprintln(f, "IPv6【disney】IP所在的国家即将开通DisneyPlus")
+			break
+		default:
+			// if NextLineSignal == true {
+			// 	fmt.Fprintln(f, "\n")
+			// }
+			//fmt.Fprintln(f, "[IPv6]")
+			if VerifyStatus == -1 {
+				fmt.Fprintln(f, "IPv6【disney】无法正常使用")
+			} else {
+				fmt.Fprintln(f, "IPv6【disney】完整解锁 区域：" + QueryStatusv6 + "区")
+			}
+		}
+		
+
+		//write to excel
 		excel.SetCellValue("Sheet1", "A"+strconv.Itoa(index+1), node)
 		excel.SetCellValue("Sheet1", "B"+strconv.Itoa(index+1), ip)
 		if ip != "" {
@@ -228,7 +316,7 @@ func main() {
 		index++
 	}
 
-	if err := excel.SaveAs(exPath + "/Netflix.xlsx"); err != nil {
+	if err := excel.SaveAs(exPath + "/result.xlsx"); err != nil {
 		fmt.Println(err)
 	}
 }
