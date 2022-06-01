@@ -129,11 +129,17 @@ func downloadConfig() {
 }
 
 func main() {
-	downloadConfig()
+	//downloadConfig()
 
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath = filepath.Dir(ex)
 	//解析配置信息
 	config, err := executor.ParseWithPath(exPath + "/config.yaml")
 	if err != nil {
+		panic(err)
 		return
 	}
 	//获取端口
@@ -179,9 +185,10 @@ func main() {
 	excel := excelize.NewFile()
 	excel.SetCellValue("Sheet1", "A1", "节点名")
 	excel.SetCellValue("Sheet1", "B1", "ip地址")
-	excel.SetCellValue("Sheet1", "C1", "复用次数")
-	excel.SetCellValue("Sheet1", "D1", "是否解锁")
-	excel.SetCellValue("Sheet1", "E1", "详细说明")
+	excel.SetCellValue("Sheet1", "C1", "netflix解锁")
+	excel.SetCellValue("Sheet1", "D1", "说明")
+	excel.SetCellValue("Sheet1", "E1", "disney解锁")
+	excel.SetCellValue("Sheet1", "F1", "说明")
 
 	index := 1
 	nodes := config.Proxies
@@ -191,6 +198,8 @@ func main() {
 		var (
 			unblock bool
 			res     string
+			unblock2 bool
+			res2     string
 		)
 		if server.Type() != constant.Shadowsocks && server.Type() != constant.ShadowsocksR && server.Type() != constant.Snell && server.Type() != constant.Socks5 && server.Type() != constant.Http && server.Type() != constant.Vmess && server.Type() != constant.Trojan {
 			continue
@@ -206,42 +215,50 @@ func main() {
 			Proxy: "http://" + proxyUrl,
 		})
 		
-		switch r.Res[1].StatusCode {
-		case 2:
+		
+		switch vcode := r.Res[1].StatusCode; {
+		case vcode == 2:
 			unblock = true
-			res = "【Netflix】IPv4完整解锁，可观看全部影片，地域信息：" + r.Res[1].CountryName
-		case 1:
-			unblock = false
-			res = "【Netflix】IPv4部分解锁，可观看自制剧，地域信息：" + r.Res[1].CountryName
-		case 0:
+			res = "【Netflix】IPv4完整解锁，可观看全部影片，区域：" + r.Res[1].CountryName
+		case vcode == 1:
+			unblock = true
+			res = "【Netflix】IPv4部分解锁，可观看自制剧，区域：" + r.Res[1].CountryName
+		case vcode == 0:
 			unblock = false
 			res = "【Netflix】IPv4无法正常使用"
-		case -1:
+		case vcode == -1:
 			unblock = false
 			res = "【Netflix】IPv4 IP所在的国家不提供服务"
+		case vcode < -1:
+			unblock = false
+			res = "【Netflix】IPv4网络没有配置"
 		default:
 			unblock = false
 			res = "【Netflix】IPv4解锁检测失败"
 		}
 
-		fmt.Fprintln(f, enc.ConvertString(str+res))
+		//fmt.Fprintln(f, enc.ConvertString(str+res))
+		res += "\n"
 
-		switch r.Res[2].StatusCode {
-		case 2:
-			unblock = true
-			res = "【Netflix】IPv6完整解锁，可观看全部影片，地域信息：" + r.Res[1].CountryName
-		case 1:
-			unblock = false
-			res = "【Netflix】IPv6部分解锁，可观看自制剧，地域信息：" + r.Res[1].CountryName
-		case 0:
-			unblock = false
-			res = "【Netflix】IPv6无法正常使用"
-		case -1:
-			unblock = false
-			res = "【Netflix】IPv6 IP所在的国家不提供服务"
+		switch vcode := r.Res[2].StatusCode; {
+		case vcode == 2:
+			unblock = unblock || true
+			res += "【Netflix】IPv6完整解锁，可观看全部影片，区域：" + r.Res[1].CountryName
+		case vcode == 1:
+			unblock = unblock || true
+			res += "【Netflix】IPv6部分解锁，可观看自制剧，区域：" + r.Res[1].CountryName
+		case vcode == 0:
+			unblock = unblock || false
+			res += "【Netflix】IPv6无法正常使用"
+		case vcode == -1:
+			unblock = unblock || false
+			res += "【Netflix】IPv6 IP所在的国家不提供服务"
+		case vcode < -1:
+			unblock = unblock || false
+			res += "【Netflix】IPv6网络没有配置"
 		default:
-			unblock = false
-			res = "【Netflix】IPv6解锁检测失败"
+			unblock = unblock || false
+			res += "【Netflix】IPv6解锁检测失败"
 		}
 
 		fmt.Fprintln(f, enc.ConvertString(res))
@@ -252,44 +269,51 @@ func main() {
 
 		VerifyStatus := VerifyAuthorized("http://" + proxyUrl)
 		if VerifyStatus == -2 {
-			fmt.Fprintln(f, "[提醒] 无法获取DisneyPlus权验接口信息，当前测试可能会不准确")
+			fmt.Fprintln(f, "【disney】无法获取DisneyPlus权验接口信息，当前测试可能会不准确")
 		}
 
 		switch QueryStatusv4 {
 		case "400":
+			unblock2 = false
 			break
 		case "Unavailable":
-			//NextLineSignal = true
-			fmt.Fprintln(f, "【disney】IPv4 IP所在的国家不提供服务")
+			unblock2 = false
+			res2 = "【disney】IPv4 IP所在的国家不提供服务"
 			break
 		case "-1":
-			//NextLineSignal = true
-			fmt.Fprintln(f, "【disney】IPv4 IP所在的国家即将开通DisneyPlus")
+			unblock2 = false
+			res2 = "【disney】IPv4 IP所在的国家即将开通DisneyPlus"
 			break
 		default:
-			//NextLineSignal = true
 			//fmt.Fprintln(f, "[IPv4]")
 			if VerifyStatus == -1 {
-				fmt.Fprintln(f, "【disney】IPv4无法正常使用")
+				unblock2 = false
+				res2 = "【disney】IPv4无法正常使用"
 			} else {
-				fmt.Fprintln(f, "【disney】IPv4完整解锁 区域：" + QueryStatusv4 + "区")
+				unblock2 = true
+				res2 = "【disney】IPv4完整解锁 区域：" + QueryStatusv4 + "区"
 			}
 		}
+		
+		res2 += "\n"
 
 		switch QueryStatusv6 {
 		case "400":
+			unblock2 = unblock2 || false
 			break
 		case "Unavailable":
 			// if NextLineSignal == true {
 			// 	fmt.Fprintln(f, "\n")
 			// }
-			fmt.Fprintln(f, "【disney】IPv6 IP所在的国家不提供服务")
+			unblock2 = unblock2 || false
+			res2 += "【disney】IPv6 IP所在的国家不提供服务"
 			break
 		case "-1":
 			// if NextLineSignal == true {
 			// 	fmt.Fprintln(f, "\n")
 			// }
-			fmt.Fprintln(f, "【disney】IPv6IP所在的国家即将开通DisneyPlus")
+			unblock2 = unblock2 ||  false
+			res2 += "【disney】IPv6IP所在的国家即将开通DisneyPlus"
 			break
 		default:
 			// if NextLineSignal == true {
@@ -297,23 +321,29 @@ func main() {
 			// }
 			//fmt.Fprintln(f, "[IPv6]")
 			if VerifyStatus == -1 {
-				fmt.Fprintln(f, "【disney】IPv6 无法正常使用")
+				unblock2 = unblock2 || false
+				res2 += "【disney】IPv6 无法正常使用"
 			} else {
-				fmt.Fprintln(f, "【disney】IPv6完整解锁 区域：" + QueryStatusv6 + "区")
+				unblock2 = unblock2 || true
+				res2 += "【disney】IPv6完整解锁 区域：" + QueryStatusv6 + "区"
 			}
 		}
 		
+		fmt.Fprintln(f, enc.ConvertString(res2))
 
 		//write to excel
 		excel.SetCellValue("Sheet1", "A"+strconv.Itoa(index+1), node)
 		excel.SetCellValue("Sheet1", "B"+strconv.Itoa(index+1), ip)
-		if ip != "" {
-			excel.SetCellFormula("Sheet1", "C"+strconv.Itoa(index+1), "= COUNTIF(B:B,B"+strconv.Itoa(index+1)+")")
-		}
-		excel.SetCellValue("Sheet1", "D"+strconv.Itoa(index+1), unblock)
-		excel.SetCellValue("Sheet1", "E"+strconv.Itoa(index+1), res)
+		excel.SetCellValue("Sheet1", "C"+strconv.Itoa(index+1), unblock)
+		excel.SetCellValue("Sheet1", "D"+strconv.Itoa(index+1), res)
+		excel.SetCellValue("Sheet1", "E"+strconv.Itoa(index+1), unblock2)
+		excel.SetCellValue("Sheet1", "F"+strconv.Itoa(index+1), res2)
 
 		index++
+
+		if err := excel.SaveAs(exPath + "/result.xlsx"); err != nil {
+			fmt.Println(err)
+		}
 	}
 
 	if err := excel.SaveAs(exPath + "/result.xlsx"); err != nil {
